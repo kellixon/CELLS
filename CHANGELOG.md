@@ -13,7 +13,7 @@ The format is based on Keep a Changelog and this project adheres to Semantic Ver
 - Fix all Subnet Proxy issues (as if)
 
 
-## [0.6.8-beta] - 2026-??-??
+## [0.6.8-beta] - 2026-09-03
 ### Added
 - Prevent redstone updates from triggering unnecessary capability scans on adjacent tiles for Interfaces, if the actual tiles have not changed.
 - Add right-click to insert compatible upgrades directly into interfaces/subnet proxies.
