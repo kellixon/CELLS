@@ -20,6 +20,7 @@ import net.minecraft.util.ResourceLocation;
 import net.minecraft.util.math.BlockPos;
 
 import net.minecraftforge.fml.common.Optional;
+import net.minecraftforge.items.IItemHandler;
 
 import appeng.client.gui.widgets.GuiCustomSlot;
 import appeng.container.AEBaseContainer;
@@ -30,6 +31,7 @@ import mezz.jei.api.gui.IGhostIngredientHandler.Target;
 import com.cells.ItemRegistry;
 import com.cells.Tags;
 import com.cells.blocks.combinedinterface.ContainerCombinedInterface;
+import com.cells.blocks.combinedinterface.ICombinedInterfaceHost;
 import com.cells.blocks.iointerface.ContainerIOInterface;
 import com.cells.blocks.iointerface.IIOInterfaceHost;
 import com.cells.client.KeyBindings;
@@ -46,6 +48,8 @@ import com.cells.gui.ImportInterfaceControlsHelper;
 import com.cells.gui.IToolboxContainer;
 import com.cells.gui.slots.AbstractResourceFilterSlot;
 import com.cells.gui.slots.AbstractResourceTankSlot;
+import com.cells.items.ItemAutoPullCard;
+import com.cells.items.ItemAutoPushCard;
 import com.cells.network.CellsNetworkHandler;
 import com.cells.network.packets.PacketChangePage;
 import com.cells.network.packets.PacketClearFilters;
@@ -448,6 +452,11 @@ public abstract class AbstractResourceInterfaceGui<H extends IInterfaceHost, C e
             this.itemRender
         );
         this.buttonList.add(this.pullPushButton);
+
+        // Cache the Pull/Push card state and update the button state on GUI init,
+        // so that the button is correctly initialized when returning to the GUI
+        // (e.g. from JEI), even if the sync packet hasn't been received yet.
+        this.cachePullPushCard();
         this.updatePullPushButtonState();
     }
 
@@ -821,6 +830,46 @@ public abstract class AbstractResourceInterfaceGui<H extends IInterfaceHost, C e
         if (cardInterval < 0) return ItemStack.EMPTY;
 
         return new ItemStack(cardExport ? ItemRegistry.PUSH_CARD : ItemRegistry.PULL_CARD);
+    }
+
+    private void cachePullPushCard() {
+        ItemStack cardStack = this.findPullPushCard();
+        if (cardStack.isEmpty()) return;
+
+        IPullPushCardStateContainer cardState = this.getPullPushCardStateContainer();
+        this.cachedPullPushCardInterval = cardState == null ? -1 : cardState.getAutoPullPushCardInterval();
+        this.cachedPullPushCardExport = this.isActiveTabExport();
+        this.cachedPullPushCard = cardStack;
+        this.pullPushButton.setCardStack(cardStack);
+        this.pullPushButton.enabled = true;
+    }
+
+    @SuppressWarnings("rawtypes")
+    private ItemStack findPullPushCard() {
+        if (this.host instanceof IIOInterfaceHost && this.container instanceof ContainerIOInterface) {
+            return findCardIn(((ContainerIOInterface) this.container).getUpgradeInventoryView());
+        }
+
+        IItemHandler upgradeInventory = null;
+
+        if (this.host instanceof IFilterableInterfaceHost) {
+            upgradeInventory = ((IFilterableInterfaceHost) this.host).getUpgradeInventory();
+        } else if (this.host instanceof ICombinedInterfaceHost) {
+            upgradeInventory = ((ICombinedInterfaceHost) this.host).getItemLogic().getUpgradeInventory();
+        }
+
+        return upgradeInventory != null ? findCardIn(upgradeInventory) : ItemStack.EMPTY;
+    }
+
+    private static ItemStack findCardIn(IItemHandler inventory) {
+        for (int slot = 0; slot < inventory.getSlots(); slot++) {
+            ItemStack stack = inventory.getStackInSlot(slot);
+            if (stack.getItem() instanceof ItemAutoPullCard || stack.getItem() instanceof ItemAutoPushCard) {
+                return stack;
+            }
+        }
+
+        return ItemStack.EMPTY;
     }
 
     @Nullable

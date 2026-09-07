@@ -1279,6 +1279,10 @@ public class InterfaceInventoryManager<R, AE extends IAEStack<AE>, K> {
      * Check if there's work to do based on direction.
      */
     public boolean hasWorkToDo() {
+        for (int slot : this.orphanedSlots) {
+            if (this.amounts[slot] > 0) return true;
+        }
+
         if (this.callbacks.isExport()) {
             // Check if any configured slot needs resources
             for (int i : this.filterSlotList) {
@@ -1304,6 +1308,9 @@ public class InterfaceInventoryManager<R, AE extends IAEStack<AE>, K> {
         try {
             IStorageGrid storageGrid = this.callbacks.getGridProxy().getStorage();
             IMEInventory<AE> inventory = this.ops.getMEInventory(storageGrid);
+
+            // Filters removed through an external handler leave import slots orphaned
+            returnOrphanedToNetwork();
 
             for (int slot : this.filterToSlotMap.values()) {
                 R identity = this.storage[slot];
